@@ -86,16 +86,21 @@ def partition_integer(value):
     return partitions
 
 
-def persist_date_formatted_trips_with_timestamp(trips_input_path: str, trips_output_path: str, trip_cnt: int, spark: SparkSession) -> DataFrame:
-    trips_df = spark.read.csv(trips_input_path, header=True, schema=get_trip_schema()).limit(trip_cnt).withColumn(
+def format_pickup_and_dropoff_timestamps(trips_df: DataFrame) -> DataFrame:
+    return trips_df.withColumn(
         "pickup_datetime",
         to_timestamp("pickup_datetime", "yyyy-MM-dd HH:mm:ss")
     ).withColumn(
         "dropoff_datetime",
         to_timestamp("dropoff_datetime", "yyyy-MM-dd HH:mm:ss")
     )
-    trips_df.withColumn('timestamp', col('dropoff_datetime')).write.csv(trips_output_path, header=True, mode="overwrite")
-    return trips_df
+
+
+def persist_latest_trip_observations(trips_df: DataFrame, trip_observations_output_path: str):
+    trips_df.withColumn('lat', col('dropoff_latitude')) \
+        .withColumn('lon', col('dropoff_longitude')) \
+        .withColumn('timestamp', col('dropoff_datetime')) \
+        .write.csv(trip_observations_output_path, header=True, mode="overwrite")
 
 
 MIN_OBSERVATIONS_CNT = 5
@@ -104,11 +109,13 @@ TRIP_CNT = 1000
 
 if __name__ == '__main__':
     spark = get_spark_session("NYCTaxiTripObservationGenerator")
-    input_path = "data/nyc-taxi-trip-duration/train.csv"
-    observations_output_path = "data/shuffled_observations_csv"
-    observation_trips_output_path = "data/observation_trips_csv"
+    trips_input_path = "data/nyc-taxi-trip-duration/train.csv"
+    shuffled_trip_observations_output_path = "data/shuffled_trip_observations_csv"
+    latest_trip_observations_output_path = "data/latest_trip_observations_csv"
 
-    trips_df = persist_date_formatted_trips_with_timestamp(input_path, observation_trips_output_path, TRIP_CNT, spark)
+    trips_df = spark.read.csv(trips_input_path, header=True, schema=get_trip_schema()).limit(TRIP_CNT)
+    trips_df = format_pickup_and_dropoff_timestamps(trips_df)
+    persist_latest_trip_observations(trips_df, latest_trip_observations_output_path)
 
     num_splits = math.ceil(TRIP_CNT / 5000)
     trips_split_df = trips_df.randomSplit([1.0 / num_splits] * num_splits)
@@ -127,7 +134,7 @@ if __name__ == '__main__':
     all_observations_df = reduce(lambda df1, df2: df1.union(df2), observation_dfs)
 
     all_observations_df.coalesce(1).select([col for col in all_observations_df.columns if col != "order"]).write.csv(
-        observations_output_path, header=True,
+        shuffled_trip_observations_output_path, header=True,
         mode="overwrite")
 
     spark.stop()
