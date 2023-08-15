@@ -4,7 +4,7 @@ from datetime import timedelta
 from functools import reduce
 
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import rand, to_timestamp
+from pyspark.sql.functions import rand, to_timestamp, col
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 
 
@@ -86,7 +86,7 @@ def partition_integer(value):
     return partitions
 
 
-def persist_date_formatted_trips(trips_input_path: str, trips_output_path: str, trip_cnt: int, spark: SparkSession) -> DataFrame:
+def persist_date_formatted_trips_with_timestamp(trips_input_path: str, trips_output_path: str, trip_cnt: int, spark: SparkSession) -> DataFrame:
     trips_df = spark.read.csv(trips_input_path, header=True, schema=get_trip_schema()).limit(trip_cnt).withColumn(
         "pickup_datetime",
         to_timestamp("pickup_datetime", "yyyy-MM-dd HH:mm:ss")
@@ -94,7 +94,7 @@ def persist_date_formatted_trips(trips_input_path: str, trips_output_path: str, 
         "dropoff_datetime",
         to_timestamp("dropoff_datetime", "yyyy-MM-dd HH:mm:ss")
     )
-    trips_df.write.csv(trips_output_path, header=True, mode="overwrite")
+    trips_df.withColumn('timestamp', col('dropoff_datetime')).write.csv(trips_output_path, header=True, mode="overwrite")
     return trips_df
 
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     observations_output_path = "data/shuffled_observations_csv"
     observation_trips_output_path = "data/observation_trips_csv"
 
-    trips_df = persist_date_formatted_trips(input_path, observation_trips_output_path, TRIP_CNT, spark)
+    trips_df = persist_date_formatted_trips_with_timestamp(input_path, observation_trips_output_path, TRIP_CNT, spark)
 
     num_splits = math.ceil(TRIP_CNT / 5000)
     trips_split_df = trips_df.randomSplit([1.0 / num_splits] * num_splits)
