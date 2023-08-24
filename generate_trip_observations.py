@@ -61,7 +61,7 @@ def generate_dummy_records(row, min_obs_cnt, max_obs_cnt):
         obs_longitude = random.uniform(row['pickup_longitude'], row['dropoff_longitude'])
         obs_latitude = random.uniform(row['pickup_latitude'], row['dropoff_latitude'])
         obs_timestamp = row['pickup_datetime'] + timedelta(
-            seconds=random.randint(0, int((row['dropoff_datetime'] - row['pickup_datetime']).total_seconds())))
+            seconds=random.randint(0, int((row['dropoff_datetime'] - row['pickup_datetime']).total_seconds() - 1)))
 
         obs_records.append((row['id'], row['vendor_id'], row['pickup_datetime'], None, row['passenger_count'],
                             row['pickup_longitude'], row['pickup_latitude'], None, None,
@@ -103,9 +103,9 @@ def persist_latest_trip_observations(trips_df: DataFrame, trip_observations_outp
         .write.csv(trip_observations_output_path, header=True, mode="overwrite")
 
 
-MIN_OBSERVATIONS_CNT = 5
-MAX_OBSERVATIONS_CNT = 200
-TRIP_CNT = 1000
+MIN_OBSERVATIONS_CNT = 2
+MAX_OBSERVATIONS_CNT = 20
+TRIP_CNT = 25000
 
 if __name__ == '__main__':
     spark = get_spark_session("NYCTaxiTripObservationGenerator")
