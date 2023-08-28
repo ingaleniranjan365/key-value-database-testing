@@ -1,2 +1,2 @@
-# key-value-database-testing
-key-value-database-testing
+This repository hosts some pyspark scirpts to produce synthetic data for testing. It uses NYC TLC Trip Records Data (https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) as source data. 
+For more details refer to key-value database perf testing GitHub repo (https://github.com/ingaleniranjan365/key-value-database-performance-testing)
